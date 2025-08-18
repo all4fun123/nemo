@@ -213,6 +213,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                     "makerCode": MAKER_CODE,
                     "func": "wish-send",
                     "data": {
+                        "AuthenType": 0,
                         "FullName": state.account_nick or username,
                         "Avatar": selected["Avatar"],
                         "ProvinceID": selected["ProvinceID"],
