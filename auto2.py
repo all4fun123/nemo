@@ -110,8 +110,8 @@ async def get_token(key: str, account: str, retry: int = 0) -> Optional[str]:
 
 async def share_event_flow(username: str, bearer_token: str, state: AccountState) -> bool:
     """Thực hiện quy trình chia sẻ sự kiện cho tài khoản."""
-    connector = ProxyConnector.from_url(CONFIGPROXY) if CONFIGPROXY else None
-    async with ClientSession(connector=connector, timeout=ClientTimeout(total=TIMEOUT)) as session:
+    # connector = ProxyConnector.from_url(CONFIGPROXY) if CONFIGPROXY else None
+    async with ClientSession(timeout=ClientTimeout(total=TIMEOUT)) as session:
         try:
             if CONFIGPROXY:
                 for retry in range(20):
@@ -224,7 +224,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                 try:
                     async with session.post(API_URL, json=wish_payload, headers=mission_headers, ssl=False) as response:
                         wish_res = await response.json()
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(2)
                     if wish_res.get("mess") != "Gửi lời chúc thành công!":
                         logger.warning(f"{username}: Không gửi được lời chúc: {wish_res.get('mess', 'Lỗi không xác định')}")
                         return None
@@ -293,7 +293,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                         return True
                     elif share_send_res.get("mess") == "Chữ ký không hợp lệ":
                         logger.warning(f"{username}: Chữ ký không hợp lệ (thử lần {retry + 1}/{MAX_SESSION_RETRIES})")
-                        await asyncio.sleep(RETRY_DELAY)
+                        await asyncio.sleep(1)
                         return await perform_share(session, wish_time, log_id, retry + 1)
                     else:
                         logger.warning(f"{username}: Chia sẻ thất bại: {share_send_res.get('mess', 'Lỗi không xác định')}")
@@ -336,7 +336,7 @@ async def load_accounts() -> List[Tuple[str, str]]:
         logger.error(f"Lỗi khi đọc file tài khoản: {str(err)}")
         return []
 
-async def process_account(session: ClientSession, username: str, key: str, state: AccountState, semaphore: asyncio.Semaphore) -> None:
+async def process_account(username: str, key: str, state: AccountState, semaphore: asyncio.Semaphore) -> None:
     """Xử lý một tài khoản, luôn retry cho đến khi thành công."""
     async with semaphore:
         logger.info(f"Bắt đầu xử lý tài khoản: {username}")
@@ -395,24 +395,22 @@ async def main():
             logger.error("Không tìm thấy tài khoản hợp lệ trong file accounts.txt")
             return
 
-        
-        async with ClientSession(timeout=ClientTimeout(total=TIMEOUT)) as session:
-            states = {username: AccountState() for username, _ in accounts}
-            semaphore = asyncio.Semaphore(2)  # Giới hạn 2 tài khoản đồng thời
+        states = {username: AccountState() for username, _ in accounts}
+        semaphore = asyncio.Semaphore(2)  # Giới hạn 2 tài khoản đồng thời
 
-            for i in range(0, len(accounts), 1):
-                batch = accounts[i:i+1]
-                logger.info(f"Xử lý nhóm tài khoản từ {i+1} đến {i+len(batch)}")
-                tasks = [
-                    process_account(session, username, key, states[username], semaphore)
-                    for username, key in batch
-                ]
-                await asyncio.gather(*tasks)
-                logger.info(f"Hoàn thành nhóm tài khoản từ {i+1} đến {i+len(batch)}")
-                await asyncio.sleep(10)  # Chờ 3 giây giữa các nhóm
+        for i in range(0, len(accounts), 2):
+            batch = accounts[i:i+2]
+            logger.info(f"Xử lý nhóm tài khoản từ {i+1} đến {i+len(batch)}")
+            tasks = [
+                process_account(username, key, states[username], semaphore)
+                for username, key in batch
+            ]
+            await asyncio.gather(*tasks)
+            logger.info(f"Hoàn thành nhóm tài khoản từ {i+1} đến {i+len(batch)}")
+            await asyncio.sleep(3)  # Chờ 3 giây giữa các nhóm
 
-            logger.info("Đã xử lý xong tất cả tài khoản, bắt đầu lại sau 10 giây")
-            await asyncio.sleep(10)  # Chờ trước khi chạy lại toàn bộ tài khoản
+        logger.info("Đã xử lý xong tất cả tài khoản, bắt đầu lại sau 10 giây")
+        await asyncio.sleep(10)  # Chờ trước khi chạy lại toàn bộ tài khoản
 
 if __name__ == "__main__":
     asyncio.run(main())
