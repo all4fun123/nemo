@@ -111,7 +111,7 @@ async def get_token(key: str, account: str, retry: int = 0) -> Optional[str]:
 async def share_event_flow(username: str, bearer_token: str, state: AccountState) -> bool:
     """Thực hiện quy trình chia sẻ sự kiện cho tài khoản."""
     connector = ProxyConnector.from_url(CONFIGPROXY) if CONFIGPROXY else None
-    async with ClientSession(timeout=ClientTimeout(total=TIMEOUT)) as session:
+    async with ClientSession(connector=connector, timeout=ClientTimeout(total=TIMEOUT)) as session:
         try:
             if CONFIGPROXY:
                 for retry in range(20):
