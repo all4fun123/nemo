@@ -65,7 +65,7 @@ async def get_token(key: str, account: str, retry: int = 0) -> Optional[str]:
             async with session.post(
                 'https://au.vtc.vn/header/Handler/Process.ashx?act=GetCookieAuthString',
                 data=f'info={quote(key)}',
-                ssl=True
+                ssl=False
             ) as response:
                 if response.status != 200:
                     logger.warning(f"{account}: Đăng nhập thất bại, mã trạng thái: {response.status} (thử lần {retry + 1}/{MAX_TOKEN_RETRIES})")
@@ -83,7 +83,7 @@ async def get_token(key: str, account: str, retry: int = 0) -> Optional[str]:
                     return await get_token(key, account, retry + 1)
                 logger.info(f"{account}: Đăng nhập thành công")
 
-            async with session.get('https://au.vtc.vn/auparty', ssl=True) as response:
+            async with session.get('https://au.vtc.vn/auparty', ssl=False) as response:
                 if response.status != 200:
                     logger.warning(f"{account}: Không truy cập được trang auparty, mã trạng thái: {response.status} (thử lần {retry + 1}/{MAX_TOKEN_RETRIES})")
                     await asyncio.sleep(RETRY_DELAY)
@@ -116,7 +116,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
             if CONFIGPROXY:
                 for retry in range(20):
                     try:
-                        async with session.get('http://ip-api.com/json', ssl=True, timeout=ClientTimeout(total=TIMEOUT)) as response:
+                        async with session.get('http://ip-api.com/json', ssl=False, timeout=ClientTimeout(total=TIMEOUT)) as response:
                             if response.status == 200:
                                 data = await response.json()
                                 logger.info(f"Proxy hoạt động: IP {data.get('query', 'không xác định')}, Quốc gia: {data.get('country', 'không xác định')}")
@@ -179,7 +179,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                         "data": ""
                     }
                     try:
-                        async with session.post(API_URL, json=list_payload, headers=mission_headers, ssl=True) as response:
+                        async with session.post(API_URL, json=list_payload, headers=mission_headers, ssl=False) as response:
                             list_res = await response.json()
                         await asyncio.sleep(1)
                         if list_res.get("code") != 1:
@@ -221,11 +221,12 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                     }
                 }
                 try:
-                    async with session.post(API_URL, json=wish_payload, headers=mission_headers, ssl=True) as response:
+                    async with session.post(API_URL, json=wish_payload, headers=mission_headers, ssl=False) as response:
                         wish_res = await response.json()
                     await asyncio.sleep(2)
                     if wish_res.get("mess") != "Gửi lời chúc thành công!":
                         logger.warning(f"{username}: Không gửi được lời chúc: {wish_res.get('mess', 'Lỗi không xác định')}")
+                        await asyncio.sleep(5)
                         return None
                     log_id = wish_res.get("code")
                     logger.info(f"{username}: Gửi lời chúc thành công, LogID: {log_id}")
@@ -254,7 +255,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                     "Referer": AU_URL,
                 }
                 try:
-                    async with session.get(share_url, headers=api_headers, ssl=True) as response:
+                    async with session.get(share_url, headers=api_headers, ssl=False) as response:
                         content_type = response.headers.get('Content-Type', '')
                         if 'application/json' not in content_type:
                             logger.warning(f"{username}: Phản hồi không phải JSON từ API token chia sẻ: Content-Type={content_type}")
@@ -284,7 +285,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                             "a": "aa"
                         }
                     }
-                    async with session.post(API_URL, json=share_payload, headers=mission_headers, ssl=True) as response:
+                    async with session.post(API_URL, json=share_payload, headers=mission_headers, ssl=False) as response:
                         share_send_res = await response.json()
                     await asyncio.sleep(1)
                     if share_send_res.get("code") == 1:
