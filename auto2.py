@@ -400,8 +400,8 @@ async def main():
             states = {username: AccountState() for username, _ in accounts}
             semaphore = asyncio.Semaphore(2)  # Giới hạn 2 tài khoản đồng thời
 
-            for i in range(0, len(accounts), 2):
-                batch = accounts[i:i+2]
+            for i in range(0, len(accounts), 1):
+                batch = accounts[i:i+1]
                 logger.info(f"Xử lý nhóm tài khoản từ {i+1} đến {i+len(batch)}")
                 tasks = [
                     process_account(session, username, key, states[username], semaphore)
@@ -409,7 +409,7 @@ async def main():
                 ]
                 await asyncio.gather(*tasks)
                 logger.info(f"Hoàn thành nhóm tài khoản từ {i+1} đến {i+len(batch)}")
-                await asyncio.sleep(3)  # Chờ 3 giây giữa các nhóm
+                await asyncio.sleep(10)  # Chờ 3 giây giữa các nhóm
 
             logger.info("Đã xử lý xong tất cả tài khoản, bắt đầu lại sau 10 giây")
             await asyncio.sleep(10)  # Chờ trước khi chạy lại toàn bộ tài khoản
