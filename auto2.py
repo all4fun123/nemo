@@ -223,7 +223,7 @@ async def share_event_flow(username: str, bearer_token: str, state: AccountState
                 try:
                     async with session.post(API_URL, json=wish_payload, headers=mission_headers, ssl=True) as response:
                         wish_res = await response.json()
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(2)
                     if wish_res.get("mess") != "Gửi lời chúc thành công!":
                         logger.warning(f"{username}: Không gửi được lời chúc: {wish_res.get('mess', 'Lỗi không xác định')}")
                         return None
