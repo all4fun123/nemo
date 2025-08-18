@@ -110,8 +110,8 @@ async def get_token(key: str, account: str, retry: int = 0) -> Optional[str]:
 
 async def share_event_flow(username: str, bearer_token: str, state: AccountState) -> bool:
     """Thực hiện quy trình chia sẻ sự kiện cho tài khoản."""
-    connector = ProxyConnector.from_url(CONFIGPROXY) if CONFIGPROXY else None
-    async with ClientSession(connector=connector, timeout=ClientTimeout(total=TIMEOUT)) as session:
+    # connector = ProxyConnector.from_url(CONFIGPROXY) if CONFIGPROXY else None
+    async with ClientSession(timeout=ClientTimeout(total=TIMEOUT)) as session:
         try:
             if CONFIGPROXY:
                 for retry in range(20):
@@ -335,7 +335,7 @@ async def load_accounts() -> List[Tuple[str, str]]:
         logger.error(f"Lỗi khi đọc file tài khoản: {str(err)}")
         return []
 
-async def process_account(username: str, key: str, state: AccountState, semaphore: asyncio.Semaphore) -> None:
+async def process_account(session: ClientSession, username: str, key: str, state: AccountState, semaphore: asyncio.Semaphore) -> None:
     """Xử lý một tài khoản, luôn retry cho đến khi thành công."""
     async with semaphore:
         logger.info(f"Bắt đầu xử lý tài khoản: {username}")
@@ -394,22 +394,24 @@ async def main():
             logger.error("Không tìm thấy tài khoản hợp lệ trong file accounts.txt")
             return
 
-        states = {username: AccountState() for username, _ in accounts}
-        semaphore = asyncio.Semaphore(2)  # Giới hạn 2 tài khoản đồng thời
+        
+        async with ClientSession(timeout=ClientTimeout(total=TIMEOUT)) as session:
+            states = {username: AccountState() for username, _ in accounts}
+            semaphore = asyncio.Semaphore(2)  # Giới hạn 2 tài khoản đồng thời
 
-        for i in range(0, len(accounts), 2):
-            batch = accounts[i:i+2]
-            logger.info(f"Xử lý nhóm tài khoản từ {i+1} đến {i+len(batch)}")
-            tasks = [
-                process_account(username, key, states[username], semaphore)
-                for username, key in batch
-            ]
-            await asyncio.gather(*tasks)
-            logger.info(f"Hoàn thành nhóm tài khoản từ {i+1} đến {i+len(batch)}")
-            await asyncio.sleep(3)  # Chờ 3 giây giữa các nhóm
+            for i in range(0, len(accounts), 2):
+                batch = accounts[i:i+2]
+                logger.info(f"Xử lý nhóm tài khoản từ {i+1} đến {i+len(batch)}")
+                tasks = [
+                    process_account(session, username, key, states[username], semaphore)
+                    for username, key in batch
+                ]
+                await asyncio.gather(*tasks)
+                logger.info(f"Hoàn thành nhóm tài khoản từ {i+1} đến {i+len(batch)}")
+                await asyncio.sleep(3)  # Chờ 3 giây giữa các nhóm
 
-        logger.info("Đã xử lý xong tất cả tài khoản, bắt đầu lại sau 10 giây")
-        await asyncio.sleep(10)  # Chờ trước khi chạy lại toàn bộ tài khoản
+            logger.info("Đã xử lý xong tất cả tài khoản, bắt đầu lại sau 10 giây")
+            await asyncio.sleep(10)  # Chờ trước khi chạy lại toàn bộ tài khoản
 
 if __name__ == "__main__":
     asyncio.run(main())
